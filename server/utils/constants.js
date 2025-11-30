@@ -3,7 +3,9 @@ module.exports = {
   USER_ROLES: {
     USER: "user",
     ADMIN: "admin",
+    HOST: "host",
     PROVIDER: "provider",
+    CENTER: "center",
   },
 
   // Booking Status
@@ -12,6 +14,13 @@ module.exports = {
     CONFIRMED: "confirmed",
     CANCELLED: "cancelled",
     COMPLETED: "completed",
+  },
+
+  // CAC Verification Status
+  CAC_STATUS: {
+    PENDING: "pending",
+    VERIFIED: "verified",
+    REJECTED: "rejected",
   },
 
   // HTTP Status Codes
@@ -35,5 +44,7 @@ module.exports = {
     BOOKING_NOT_FOUND: "Booking not found",
     VALIDATION_ERROR: "Validation error",
     SERVER_ERROR: "Server error",
+    INVALID_TOKEN: "Invalid or expired token",
+    ADMIN_ONLY: "Admin access required",
   },
 };
