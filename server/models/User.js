@@ -41,18 +41,15 @@ const userSchema = new mongoose.Schema(
       default: true,
     },
 
-    // Host-specific fields
+    // Host-specific fields (No CAC required)
     hostProfile: {
       businessName: { type: String, trim: true },
       businessAddress: { type: String, trim: true },
       businessType: { type: String, trim: true },
-      cacNumber: { type: String, trim: true },
-      cacVerified: { type: Boolean, default: false },
-      cacDocument: { type: String }, // URL to uploaded document
       description: { type: String, maxlength: 1000 },
     },
 
-    // Provider-specific fields
+    // Provider-specific fields (CAC required)
     providerProfile: {
       companyName: { type: String, trim: true },
       serviceType: { type: String, trim: true },
@@ -61,9 +58,12 @@ const userSchema = new mongoose.Schema(
       portfolio: [{ type: String }], // URLs
       rating: { type: Number, min: 0, max: 5, default: 0 },
       reviewCount: { type: Number, default: 0 },
+      cacNumber: { type: String, trim: true },
+      cacVerified: { type: Boolean, default: false },
+      cacDocument: { type: String }, // URL to uploaded document
     },
 
-    // Center-specific fields
+    // Center-specific fields (CAC required)
     centerProfile: {
       centerName: { type: String, trim: true },
       centerType: { type: String, trim: true },
@@ -83,6 +83,9 @@ const userSchema = new mongoose.Schema(
         close: { type: String },
       },
       amenities: [{ type: String }],
+      cacNumber: { type: String, trim: true },
+      cacVerified: { type: Boolean, default: false },
+      cacDocument: { type: String }, // URL to uploaded document
     },
 
     // Password reset

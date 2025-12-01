@@ -94,6 +94,7 @@ const schemas = {
       experience: Joi.number().min(0).optional(),
       certifications: Joi.array().items(Joi.string()).optional(),
       portfolio: Joi.array().items(Joi.string().uri()).optional(),
+      cacNumber: Joi.string().max(20).optional(),
     }).optional(),
   }),
 
@@ -122,6 +123,7 @@ const schemas = {
         close: Joi.string().optional(),
       }).optional(),
       amenities: Joi.array().items(Joi.string()).optional(),
+      cacNumber: Joi.string().max(20).optional(),
     }).optional(),
   }),
 
