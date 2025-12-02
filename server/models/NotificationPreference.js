@@ -69,9 +69,6 @@ const notificationPreferenceSchema = new mongoose.Schema(
   }
 );
 
-// Index for quick lookups
-notificationPreferenceSchema.index({ user: 1 });
-
 // Method to check if notification should be sent
 notificationPreferenceSchema.methods.shouldSendNotification = function (
   type,

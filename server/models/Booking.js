@@ -208,7 +208,6 @@ bookingSchema.index({ customer: 1, status: 1 });
 bookingSchema.index({ provider: 1, status: 1 });
 bookingSchema.index({ eventCenter: 1, "eventDetails.eventDate": 1 });
 bookingSchema.index({ serviceProvider: 1, status: 1 });
-bookingSchema.index({ bookingNumber: 1 });
 bookingSchema.index({ "eventDetails.eventDate": 1 });
 bookingSchema.index({ status: 1, paymentStatus: 1 });
 

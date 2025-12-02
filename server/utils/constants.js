@@ -1,7 +1,6 @@
 module.exports = {
   // User Roles
   USER_ROLES: {
-    USER: "user",
     ADMIN: "admin",
     HOST: "host",
     PROVIDER: "provider",

@@ -39,7 +39,7 @@ router.post("/register", validate(schemas.register), async (req, res, next) => {
       email,
       password,
       phone,
-      role: role || USER_ROLES.USER,
+      role: role || USER_ROLES.HOST,
     };
 
     // Initialize profile based on role
