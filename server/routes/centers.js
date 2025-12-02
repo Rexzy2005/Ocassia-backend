@@ -114,7 +114,7 @@ router.get("/", async (req, res, next) => {
 
     // Execute query
     const centers = await EventCenter.find(query)
-      .populate("owner", "name email phone centerProfile.centerName")
+      .populate("owner", "name email phone")
       .sort(sortOptions)
       .limit(limitNum)
       .skip(skip)
@@ -156,7 +156,7 @@ router.get("/:centerId", async (req, res, next) => {
   try {
     const center = await EventCenter.findById(req.params.centerId).populate(
       "owner",
-      "name email phone centerProfile createdAt"
+      "name email phone createdAt"
     );
 
     if (!center) {
@@ -193,9 +193,9 @@ router.post(
   authorize(USER_ROLES.CENTER),
   async (req, res, next) => {
     try {
-      // Check if center owner's CAC is verified
-      const user = await User.findById(req.user._id);
-      if (!user.centerProfile.cacVerified) {
+      // Check if center owner's CAC is verified (must have an EventCenter with verified CAC)
+      const ec = await EventCenter.findOne({ owner: req.user._id });
+      if (!ec || !ec.cacVerified) {
         return errorResponse(
           res,
           STATUS_CODES.FORBIDDEN,

@@ -1,10 +1,10 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
-const { USER_ROLES } = require("../utils/constants");
 
-const userSchema = new mongoose.Schema(
+const hostSchema = new mongoose.Schema(
   {
+    // Auth fields
     name: {
       type: String,
       required: [true, "Name is required"],
@@ -33,39 +33,21 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: Object.values(USER_ROLES),
-      default: USER_ROLES.HOST,
+      default: "host",
+      immutable: true,
     },
-    // References to separate role-specific documents
-    host: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Host",
+    // Host profile fields (minimal)
+    profileImage: {
+      type: String,
     },
-    serviceProvider: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "ServiceProvider",
-    },
-    eventCenter: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "EventCenter",
-    },
+
     isActive: {
       type: Boolean,
       default: true,
     },
-
-    // Host-specific data moved to Host model (referenced via `host`)
-
-    // Provider-specific fields (CAC required)
-    // Provider-specific data moved to ServiceProvider model (referenced via `serviceProvider`)
-
-    // Center-specific fields (CAC required)
-    // Center-specific data moved to EventCenter model (referenced via `eventCenter`)
-
     // Password reset
     resetPasswordToken: String,
     resetPasswordExpire: Date,
-
     // Profile completion
     profileCompleted: {
       type: Boolean,
@@ -78,7 +60,7 @@ const userSchema = new mongoose.Schema(
 );
 
 // Hash password before saving
-userSchema.pre("save", async function (next) {
+hostSchema.pre("save", async function (next) {
   if (!this.isModified("password")) {
     return next();
   }
@@ -89,28 +71,23 @@ userSchema.pre("save", async function (next) {
 });
 
 // Compare password method
-userSchema.methods.comparePassword = async function (enteredPassword) {
+hostSchema.methods.comparePassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
 // Generate password reset token
-userSchema.methods.generateResetToken = function () {
+hostSchema.methods.generateResetToken = function () {
   const resetToken = crypto.randomBytes(32).toString("hex");
-
-  // Hash and set to resetPasswordToken field
   this.resetPasswordToken = crypto
     .createHash("sha256")
     .update(resetToken)
     .digest("hex");
-
-  // Set expire time (10 minutes)
   this.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
-
   return resetToken;
 };
 
 // Remove password from JSON response
-userSchema.methods.toJSON = function () {
+hostSchema.methods.toJSON = function () {
   const user = this.toObject();
   delete user.password;
   delete user.resetPasswordToken;
@@ -118,4 +95,7 @@ userSchema.methods.toJSON = function () {
   return user;
 };
 
-module.exports = mongoose.model("User", userSchema);
+// Indexes for performance
+hostSchema.index({ isActive: 1 });
+
+module.exports = mongoose.model("Host", hostSchema);

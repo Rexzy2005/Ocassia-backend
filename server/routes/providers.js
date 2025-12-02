@@ -91,7 +91,7 @@ router.get("/", async (req, res, next) => {
 
     // Execute query
     const providers = await ServiceProvider.find(query)
-      .populate("provider", "name email phone providerProfile.rating")
+      .populate("provider", "name email phone")
       .sort(sortOptions)
       .limit(limitNum)
       .skip(skip)
@@ -133,7 +133,7 @@ router.get("/:providerId", async (req, res, next) => {
   try {
     const provider = await ServiceProvider.findById(
       req.params.providerId
-    ).populate("provider", "name email phone providerProfile createdAt");
+    ).populate("provider", "name email phone createdAt");
 
     if (!provider) {
       return errorResponse(
@@ -169,9 +169,9 @@ router.post(
   authorize(USER_ROLES.PROVIDER),
   async (req, res, next) => {
     try {
-      // Check if provider's CAC is verified
-      const user = await User.findById(req.user._id);
-      if (!user.providerProfile.cacVerified) {
+      // Check if provider's CAC is verified (must have a ServiceProvider with verified CAC)
+      const sp = await ServiceProvider.findOne({ provider: req.user._id });
+      if (!sp || !sp.cacVerified) {
         return errorResponse(
           res,
           STATUS_CODES.FORBIDDEN,

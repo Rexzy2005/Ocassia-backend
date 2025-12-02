@@ -6,7 +6,10 @@ const { STATUS_CODES } = require("../utils/constants");
  */
 const validate = (schema) => {
   return (req, res, next) => {
-    const { error } = schema.validate(req.body, { abortEarly: false });
+    const { error } = schema.validate(req.body, {
+      abortEarly: false,
+      allowUnknown: true,
+    });
 
     if (error) {
       const errors = error.details.map((detail) => ({
@@ -38,8 +41,11 @@ const schemas = {
       .pattern(/^[0-9]{10,15}$/)
       .optional(),
     role: Joi.string()
-      .valid("user", "admin", "host", "provider", "center")
-      .default("user"),
+      .valid("admin", "host", "provider", "center")
+      .default("host"),
+    hostProfile: Joi.object().unknown(true).optional(),
+    providerProfile: Joi.object().unknown(true).optional(),
+    centerProfile: Joi.object().unknown(true).optional(),
   }),
 
   // User login
@@ -73,13 +79,8 @@ const schemas = {
     phone: Joi.string()
       .pattern(/^[0-9]{10,15}$/)
       .optional(),
-    hostProfile: Joi.object({
-      businessName: Joi.string().max(100).optional(),
-      businessAddress: Joi.string().max(200).optional(),
-      businessType: Joi.string().max(50).optional(),
-      cacNumber: Joi.string().max(20).optional(),
-      description: Joi.string().max(1000).optional(),
-    }).optional(),
+    profileImage: Joi.string().optional(),
+    hostProfile: Joi.object({}).optional(),
   }),
 
   // Provider profile update
@@ -198,6 +199,39 @@ const schemas = {
 
   // Cancel booking
   cancelBooking: Joi.object({
+    reason: Joi.string().max(500).optional(),
+  }),
+
+  // Create review
+  createReview: Joi.object({
+    bookingId: Joi.string().required(),
+    ratings: Joi.object({
+      overall: Joi.number().min(1).max(5).required(),
+      quality: Joi.number().min(1).max(5).optional(),
+      communication: Joi.number().min(1).max(5).optional(),
+      professionalism: Joi.number().min(1).max(5).optional(),
+      valueForMoney: Joi.number().min(1).max(5).optional(),
+    }).required(),
+    title: Joi.string().max(100).optional(),
+    comment: Joi.string().min(10).max(1000).required(),
+    images: Joi.array()
+      .items(
+        Joi.object({
+          url: Joi.string().uri().required(),
+          caption: Joi.string().max(200).optional(),
+        })
+      )
+      .optional(),
+    wouldRecommend: Joi.boolean().optional(),
+  }),
+
+  // Review response
+  reviewResponse: Joi.object({
+    text: Joi.string().min(10).max(500).required(),
+  }),
+
+  // Report review
+  reportReview: Joi.object({
     reason: Joi.string().max(500).optional(),
   }),
 };

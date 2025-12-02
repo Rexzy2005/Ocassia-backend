@@ -1,12 +1,50 @@
 const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 
 const serviceProviderSchema = new mongoose.Schema(
   {
-    provider: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: [true, "Provider reference is required"],
+    // Auth fields
+    name: {
+      type: String,
+      required: [true, "Name is required"],
+      trim: true,
+      minlength: [2, "Name must be at least 2 characters"],
+      maxlength: [50, "Name cannot exceed 50 characters"],
     },
+    email: {
+      type: String,
+      required: [true, "Email is required"],
+      unique: true,
+      lowercase: true,
+      trim: true,
+      match: [/^\S+@\S+\.\S+$/, "Please enter a valid email"],
+    },
+    password: {
+      type: String,
+      required: [true, "Password is required"],
+      minlength: [6, "Password must be at least 6 characters"],
+      select: false,
+    },
+    phone: {
+      type: String,
+      trim: true,
+      match: [/^[0-9]{10,15}$/, "Please enter a valid phone number"],
+    },
+    role: {
+      type: String,
+      default: "provider",
+      immutable: true,
+    },
+    // Password reset
+    resetPasswordToken: String,
+    resetPasswordExpire: Date,
+    // Profile completion
+    profileCompleted: {
+      type: Boolean,
+      default: false,
+    },
+    // Provider-specific fields
     serviceCategory: {
       type: String,
       required: [true, "Service category is required"],
@@ -128,8 +166,45 @@ const serviceProviderSchema = new mongoose.Schema(
   }
 );
 
+// Hash password before saving
+serviceProviderSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) {
+    return next();
+  }
+
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+  next();
+});
+
+// Compare password method
+serviceProviderSchema.methods.comparePassword = async function (
+  enteredPassword
+) {
+  return await bcrypt.compare(enteredPassword, this.password);
+};
+
+// Generate password reset token
+serviceProviderSchema.methods.generateResetToken = function () {
+  const resetToken = crypto.randomBytes(32).toString("hex");
+  this.resetPasswordToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+  this.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+  return resetToken;
+};
+
+// Remove password from JSON response
+serviceProviderSchema.methods.toJSON = function () {
+  const user = this.toObject();
+  delete user.password;
+  delete user.resetPasswordToken;
+  delete user.resetPasswordExpire;
+  return user;
+};
+
 // Indexes for performance
-serviceProviderSchema.index({ provider: 1 });
 serviceProviderSchema.index({ serviceCategory: 1 });
 serviceProviderSchema.index({ "availability.status": 1 });
 serviceProviderSchema.index({ "rating.average": -1 });

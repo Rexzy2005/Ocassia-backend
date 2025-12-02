@@ -16,6 +16,7 @@ const bookingRoutes = require("./routes/bookings");
 const conversationRoutes = require("./routes/conversations");
 const notificationRoutes = require("./routes/notifications");
 const notificationPreferenceRoutes = require("./routes/notificationPreferences");
+const reviewRoutes = require("./routes/reviews");
 
 const app = express();
 
@@ -68,6 +69,7 @@ app.use("/api/bookings", bookingRoutes);
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/notification-preferences", notificationPreferenceRoutes);
+app.use("/api/reviews", reviewRoutes);
 
 // 404 handler
 app.use("*", (req, res) => {

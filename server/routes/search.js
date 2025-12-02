@@ -99,7 +99,7 @@ router.get("/", async (req, res, next) => {
       if (type === "provider") {
         // Full pagination for provider-only search
         providers = await ServiceProvider.find(providerQuery)
-          .populate("provider", "name providerProfile.rating")
+          .populate("provider", "name")
           .sort(sortOptions)
           .limit(limitNum)
           .skip(skip)
@@ -109,7 +109,7 @@ router.get("/", async (req, res, next) => {
       } else {
         // Limited results for unified search
         providers = await ServiceProvider.find(providerQuery)
-          .populate("provider", "name providerProfile.rating")
+          .populate("provider", "name")
           .sort(sortOptions)
           .limit(6)
           .lean();
@@ -168,7 +168,7 @@ router.get("/", async (req, res, next) => {
       if (type === "center") {
         // Full pagination for center-only search
         centers = await EventCenter.find(centerQuery)
-          .populate("owner", "name centerProfile.centerName")
+          .populate("owner", "name")
           .sort(sortOptions)
           .limit(limitNum)
           .skip(skip)
@@ -178,7 +178,7 @@ router.get("/", async (req, res, next) => {
       } else {
         // Limited results for unified search
         centers = await EventCenter.find(centerQuery)
-          .populate("owner", "name centerProfile.centerName")
+          .populate("owner", "name")
           .sort(sortOptions)
           .limit(6)
           .lean();

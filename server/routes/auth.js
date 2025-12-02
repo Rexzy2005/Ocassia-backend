@@ -21,7 +21,16 @@ const {
  */
 router.post("/register", validate(schemas.register), async (req, res, next) => {
   try {
-    const { name, email, password, phone, role } = req.body;
+    const {
+      name,
+      email,
+      password,
+      phone,
+      role,
+      hostProfile,
+      providerProfile,
+      centerProfile,
+    } = req.body;
 
     // Check if user exists
     const existingUser = await User.findOne({ email });
@@ -33,7 +42,7 @@ router.post("/register", validate(schemas.register), async (req, res, next) => {
       );
     }
 
-    // Create user with role
+    // Create user with core fields
     const userData = {
       name,
       email,
@@ -42,16 +51,47 @@ router.post("/register", validate(schemas.register), async (req, res, next) => {
       role: role || USER_ROLES.HOST,
     };
 
-    // Initialize profile based on role
-    if (role === USER_ROLES.HOST) {
-      userData.hostProfile = {};
-    } else if (role === USER_ROLES.PROVIDER) {
-      userData.providerProfile = {};
-    } else if (role === USER_ROLES.CENTER) {
-      userData.centerProfile = {};
+    // Persist the base user first (we will attach role-specific documents after)
+    const user = await User.create(userData);
+
+    // Create role-specific documents and link them to the user when profile payloads provided
+    if (
+      role === USER_ROLES.PROVIDER &&
+      providerProfile &&
+      typeof providerProfile === "object"
+    ) {
+      const ServiceProvider = require("../models/ServiceProvider");
+      const sp = await ServiceProvider.create({
+        provider: user._id,
+        ...providerProfile,
+      });
+      user.serviceProvider = sp._id;
+    } else if (
+      role === USER_ROLES.CENTER &&
+      centerProfile &&
+      typeof centerProfile === "object"
+    ) {
+      const EventCenter = require("../models/EventCenter");
+      const ec = await EventCenter.create({
+        owner: user._id,
+        ...centerProfile,
+      });
+      user.eventCenter = ec._id;
+    } else if (role === USER_ROLES.HOST) {
+      const Host = require("../models/Host");
+      const h = await Host.create({
+        name,
+        email,
+        password,
+        phone,
+        role: USER_ROLES.HOST,
+        profileImage: hostProfile?.profileImage || undefined,
+      });
+      user.host = h._id;
     }
 
-    const user = await User.create(userData);
+    // Save user after attaching references
+    await user.save();
 
     // Generate token
     const token = generateToken(user._id);

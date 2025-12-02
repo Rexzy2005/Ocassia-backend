@@ -1,6 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
+const Host = require("../models/Host");
+const ServiceProvider = require("../models/ServiceProvider");
+const EventCenter = require("../models/EventCenter");
 const { protect, authorize } = require("../middleware/auth");
 const { validate, schemas } = require("../middleware/validation");
 const { successResponse, errorResponse } = require("../utils/helpers");
@@ -18,7 +21,11 @@ const {
  */
 router.get("/me", protect, async (req, res, next) => {
   try {
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user._id)
+      .populate("host")
+      .populate("serviceProvider")
+      .populate("eventCenter");
+
     successResponse(res, STATUS_CODES.OK, { user }, "User profile retrieved");
   } catch (error) {
     next(error);
@@ -102,16 +109,51 @@ router.put("/:userId/profile", protect, async (req, res, next) => {
 
     // Update role-specific profile
     if (user.role === USER_ROLES.HOST && req.body.hostProfile) {
-      user.hostProfile = { ...user.hostProfile, ...req.body.hostProfile };
+      // Update or create Host document linked to this user
+      if (user.host) {
+        await Host.findByIdAndUpdate(user.host, req.body.hostProfile, {
+          new: true,
+          runValidators: true,
+        });
+      } else {
+        const h = await Host.create({
+          user: user._id,
+          ...req.body.hostProfile,
+        });
+        user.host = h._id;
+      }
       user.profileCompleted = true;
     } else if (user.role === USER_ROLES.PROVIDER && req.body.providerProfile) {
-      user.providerProfile = {
-        ...user.providerProfile,
-        ...req.body.providerProfile,
-      };
+      // Update or create ServiceProvider document linked to this user
+      if (user.serviceProvider) {
+        await ServiceProvider.findByIdAndUpdate(
+          user.serviceProvider,
+          req.body.providerProfile,
+          { new: true, runValidators: true }
+        );
+      } else {
+        const sp = await ServiceProvider.create({
+          provider: user._id,
+          ...req.body.providerProfile,
+        });
+        user.serviceProvider = sp._id;
+      }
       user.profileCompleted = true;
     } else if (user.role === USER_ROLES.CENTER && req.body.centerProfile) {
-      user.centerProfile = { ...user.centerProfile, ...req.body.centerProfile };
+      // Update or create EventCenter document linked to this user
+      if (user.eventCenter) {
+        await EventCenter.findByIdAndUpdate(
+          user.eventCenter,
+          req.body.centerProfile,
+          { new: true, runValidators: true }
+        );
+      } else {
+        const ec = await EventCenter.create({
+          owner: user._id,
+          ...req.body.centerProfile,
+        });
+        user.eventCenter = ec._id;
+      }
       user.profileCompleted = true;
     }
 
@@ -172,18 +214,55 @@ router.post(
         );
       }
 
-      // Update CAC information based on role
+      // Update CAC information based on role using referenced documents
       if (user.role === USER_ROLES.PROVIDER) {
-        user.providerProfile.cacNumber = cacNumber;
-        user.providerProfile.companyName = businessName;
-        user.providerProfile.cacVerified = false; // Will be verified by admin
-      } else if (user.role === USER_ROLES.CENTER) {
-        user.centerProfile.cacNumber = cacNumber;
-        user.centerProfile.centerName = businessName;
-        user.centerProfile.cacVerified = false; // Will be verified by admin
-      }
+        // find ServiceProvider for this user (or create if missing)
+        let sp = null;
+        if (user.serviceProvider) {
+          sp = await ServiceProvider.findById(user.serviceProvider);
+        } else {
+          sp = await ServiceProvider.findOne({ provider: user._id });
+        }
 
-      await user.save();
+        if (!sp) {
+          sp = await ServiceProvider.create({
+            provider: user._id,
+            cacNumber,
+            companyName: businessName,
+            cacVerified: false,
+          });
+          user.serviceProvider = sp._id;
+        } else {
+          sp.cacNumber = cacNumber;
+          sp.companyName = businessName;
+          sp.cacVerified = false;
+          await sp.save();
+        }
+        await user.save();
+      } else if (user.role === USER_ROLES.CENTER) {
+        let ec = null;
+        if (user.eventCenter) {
+          ec = await EventCenter.findById(user.eventCenter);
+        } else {
+          ec = await EventCenter.findOne({ owner: user._id });
+        }
+
+        if (!ec) {
+          ec = await EventCenter.create({
+            owner: user._id,
+            cacNumber,
+            centerName: businessName,
+            cacVerified: false,
+          });
+          user.eventCenter = ec._id;
+        } else {
+          ec.cacNumber = cacNumber;
+          ec.centerName = businessName;
+          ec.cacVerified = false;
+          await ec.save();
+        }
+        await user.save();
+      }
 
       successResponse(
         res,
@@ -308,11 +387,23 @@ router.put(
         );
       }
 
-      // Update verification status based on role
+      // Update verification status based on role (update referenced documents)
       if (user.role === USER_ROLES.PROVIDER) {
-        user.providerProfile.cacVerified = approve === true;
+        const sp = user.serviceProvider
+          ? await ServiceProvider.findById(user.serviceProvider)
+          : await ServiceProvider.findOne({ provider: user._id });
+        if (sp) {
+          sp.cacVerified = approve === true;
+          await sp.save();
+        }
       } else if (user.role === USER_ROLES.CENTER) {
-        user.centerProfile.cacVerified = approve === true;
+        const ec = user.eventCenter
+          ? await EventCenter.findById(user.eventCenter)
+          : await EventCenter.findOne({ owner: user._id });
+        if (ec) {
+          ec.cacVerified = approve === true;
+          await ec.save();
+        }
       }
 
       await user.save();
