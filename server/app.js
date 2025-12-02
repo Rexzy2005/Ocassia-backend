@@ -12,6 +12,10 @@ const adminRoutes = require("./routes/admin");
 const providerRoutes = require("./routes/providers");
 const centerRoutes = require("./routes/centers");
 const searchRoutes = require("./routes/search");
+const bookingRoutes = require("./routes/bookings");
+const conversationRoutes = require("./routes/conversations");
+const notificationRoutes = require("./routes/notifications");
+const notificationPreferenceRoutes = require("./routes/notificationPreferences");
 
 const app = express();
 
@@ -60,6 +64,10 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/providers", providerRoutes);
 app.use("/api/centers", centerRoutes);
 app.use("/api/search", searchRoutes);
+app.use("/api/bookings", bookingRoutes);
+app.use("/api/conversations", conversationRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/notification-preferences", notificationPreferenceRoutes);
 
 // 404 handler
 app.use("*", (req, res) => {

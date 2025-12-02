@@ -132,6 +132,74 @@ const schemas = {
     cacNumber: Joi.string().required(),
     businessName: Joi.string().required(),
   }),
+
+  // Create booking
+  createBooking: Joi.object({
+    bookingType: Joi.string().valid("provider", "center").required(),
+    serviceProviderId: Joi.string().when("bookingType", {
+      is: "provider",
+      then: Joi.required(),
+      otherwise: Joi.optional(),
+    }),
+    eventCenterId: Joi.string().when("bookingType", {
+      is: "center",
+      then: Joi.required(),
+      otherwise: Joi.optional(),
+    }),
+    eventDetails: Joi.object({
+      eventName: Joi.string().max(100).optional(),
+      eventType: Joi.string()
+        .valid(
+          "Wedding",
+          "Birthday",
+          "Corporate",
+          "Conference",
+          "Workshop",
+          "Concert",
+          "Exhibition",
+          "Religious",
+          "Social",
+          "Other"
+        )
+        .optional(),
+      eventDate: Joi.date().min("now").required(),
+      startTime: Joi.string().required(),
+      endTime: Joi.string().required(),
+      guestCount: Joi.number().min(1).optional(),
+      specialRequests: Joi.string().max(1000).optional(),
+    }).required(),
+    pricing: Joi.object({
+      baseAmount: Joi.number().min(0).required(),
+      additionalCharges: Joi.array()
+        .items(
+          Joi.object({
+            description: Joi.string(),
+            amount: Joi.number().min(0),
+          })
+        )
+        .optional(),
+      discount: Joi.number().min(0).optional(),
+      totalAmount: Joi.number().min(0).required(),
+      currency: Joi.string().default("NGN"),
+    }).required(),
+    paymentMethod: Joi.string()
+      .valid("escrow", "direct", "cash")
+      .default("escrow"),
+    notes: Joi.string().max(2000).optional(),
+  }),
+
+  // Update booking status
+  updateBookingStatus: Joi.object({
+    status: Joi.string()
+      .valid("pending", "confirmed", "cancelled", "completed")
+      .required(),
+    reason: Joi.string().max(500).optional(),
+  }),
+
+  // Cancel booking
+  cancelBooking: Joi.object({
+    reason: Joi.string().max(500).optional(),
+  }),
 };
 
 module.exports = { validate, schemas };
