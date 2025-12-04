@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const crypto = require("crypto");
+const mongoose = require("mongoose");
 const User = require("../models/User");
 const { validate, schemas } = require("../middleware/validation");
 const {
@@ -20,6 +21,8 @@ const {
  * @access  Public
  */
 router.post("/register", validate(schemas.register), async (req, res, next) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
   try {
     const {
       name,
@@ -32,13 +35,53 @@ router.post("/register", validate(schemas.register), async (req, res, next) => {
       centerProfile,
     } = req.body;
 
-    // Check if user exists
-    const existingUser = await User.findOne({ email });
+    // Check if user exists (inside transaction)
+    const existingUser = await User.findOne({ email }).session(session);
     if (existingUser) {
+      await session.abortTransaction();
+      session.endSession();
       return errorResponse(
         res,
         STATUS_CODES.CONFLICT,
         ERROR_MESSAGES.USER_EXISTS
+      );
+    }
+
+    // Normalize provider-specific fields from multiple possible keys
+    const incomingProvider =
+      providerProfile && typeof providerProfile === "object"
+        ? providerProfile
+        : {};
+    const serviceCategoryNormalized =
+      incomingProvider.serviceCategory ||
+      incomingProvider.category ||
+      req.body.serviceCategory ||
+      req.body.providerCategory ||
+      req.body.service_category ||
+      req.body.category ||
+      undefined;
+
+    // Debug: log minimal registration info to help trace missing fields
+    console.debug("[auth.register] payload:", {
+      role,
+      name,
+      email,
+      phone,
+      serviceCategoryNormalized,
+      providerProfileKeys:
+        providerProfile && typeof providerProfile === "object"
+          ? Object.keys(providerProfile)
+          : undefined,
+    });
+
+    // If registering a provider, require serviceCategory up-front and fail fast
+    if (role === USER_ROLES.PROVIDER && !serviceCategoryNormalized) {
+      await session.abortTransaction();
+      session.endSession();
+      return errorResponse(
+        res,
+        STATUS_CODES.BAD_REQUEST,
+        "Service category is required"
       );
     }
 
@@ -52,34 +95,34 @@ router.post("/register", validate(schemas.register), async (req, res, next) => {
     };
 
     // Persist the base user first (we will attach role-specific documents after)
-    const user = await User.create(userData);
+    const user = new User(userData);
+    await user.save({ session });
 
     // Create role-specific documents and link them to the user when profile payloads provided
-    if (
-      role === USER_ROLES.PROVIDER &&
-      providerProfile &&
-      typeof providerProfile === "object"
-    ) {
+    if (role === USER_ROLES.PROVIDER) {
       const ServiceProvider = require("../models/ServiceProvider");
-      const sp = await ServiceProvider.create({
+      const sp = new ServiceProvider({
         provider: user._id,
-        ...providerProfile,
+        name,
+        email,
+        password,
+        phone,
+        role: USER_ROLES.PROVIDER,
+        serviceCategory: serviceCategoryNormalized,
+        serviceName:
+          (providerProfile && providerProfile.serviceName) ||
+          req.body.serviceName ||
+          undefined,
+        description:
+          (providerProfile && providerProfile.description) ||
+          req.body.description ||
+          undefined,
       });
+      await sp.save({ session });
       user.serviceProvider = sp._id;
-    } else if (
-      role === USER_ROLES.CENTER &&
-      centerProfile &&
-      typeof centerProfile === "object"
-    ) {
-      const EventCenter = require("../models/EventCenter");
-      const ec = await EventCenter.create({
-        owner: user._id,
-        ...centerProfile,
-      });
-      user.eventCenter = ec._id;
     } else if (role === USER_ROLES.HOST) {
       const Host = require("../models/Host");
-      const h = await Host.create({
+      const h = new Host({
         name,
         email,
         password,
@@ -87,11 +130,39 @@ router.post("/register", validate(schemas.register), async (req, res, next) => {
         role: USER_ROLES.HOST,
         profileImage: hostProfile?.profileImage || undefined,
       });
+      await h.save({ session });
       user.host = h._id;
+    } else if (role === USER_ROLES.CENTER) {
+      const EventCenter = require("../models/EventCenter");
+      const ec = new EventCenter({
+        owner: user._id,
+        centerName:
+          (centerProfile && centerProfile.centerName) ||
+          name ||
+          "My Event Center",
+        location:
+          centerProfile && centerProfile.location
+            ? centerProfile.location
+            : undefined,
+        capacity:
+          centerProfile && centerProfile.capacity
+            ? centerProfile.capacity
+            : undefined,
+        description:
+          centerProfile && centerProfile.description
+            ? centerProfile.description
+            : undefined,
+        phone,
+      });
+      await ec.save({ session });
+      user.eventCenter = ec._id;
     }
 
     // Save user after attaching references
-    await user.save();
+    await user.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
 
     // Generate token
     const token = generateToken(user._id);
@@ -103,6 +174,8 @@ router.post("/register", validate(schemas.register), async (req, res, next) => {
       "User registered successfully"
     );
   } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
     next(error);
   }
 });

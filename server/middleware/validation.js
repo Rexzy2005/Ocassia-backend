@@ -128,6 +128,65 @@ const schemas = {
     }).optional(),
   }),
 
+  // Create center profile (used by POST /api/centers/profile)
+  createCenterProfile: Joi.object({
+    centerName: Joi.string().min(2).max(100).optional(),
+    centerType: Joi.string()
+      .valid(
+        "Hotel/Resort",
+        "Conference Center",
+        "Banquet Hall",
+        "Outdoor Venue",
+        "Community Center",
+        "Restaurant/Lounge",
+        "Religious Center",
+        "Garden/Park",
+        "Other"
+      )
+      .optional(),
+    description: Joi.string().max(2000).optional(),
+    location: Joi.object({
+      address: Joi.string().max(200).optional(),
+      city: Joi.string().max(50).optional(),
+      state: Joi.string().max(50).optional(),
+      coordinates: Joi.object({
+        lat: Joi.number().min(-90).max(90).optional(),
+        lng: Joi.number().min(-180).max(180).optional(),
+      }).optional(),
+    }).optional(),
+    facilities: Joi.array().items(Joi.string()).optional(),
+    amenities: Joi.array().items(Joi.string()).optional(),
+    eventTypes: Joi.array()
+      .items(
+        Joi.string().valid(
+          "Wedding",
+          "Birthday",
+          "Corporate",
+          "Conference",
+          "Workshop",
+          "Concert",
+          "Exhibition",
+          "Religious",
+          "Social",
+          "Other"
+        )
+      )
+      .optional(),
+    images: Joi.array()
+      .items(
+        Joi.object({
+          url: Joi.string().uri().required(),
+          caption: Joi.string().max(200).optional(),
+          isPrimary: Joi.boolean().optional(),
+        })
+      )
+      .optional(),
+    cacNumber: Joi.string().max(20).optional(),
+    phone: Joi.string()
+      .pattern(/^[0-9]{10,15}$/)
+      .optional(),
+  }),
+
   // CAC verification
   verifyCac: Joi.object({
     cacNumber: Joi.string().required(),
@@ -233,6 +292,127 @@ const schemas = {
   // Report review
   reportReview: Joi.object({
     reason: Joi.string().max(500).optional(),
+  }),
+
+  // Service pricing and availability validation helpers
+  createService: Joi.object({
+    title: Joi.string().min(2).max(150).required(),
+    description: Joi.string().max(2000).optional(),
+    pricing: Joi.alternatives().try(
+      Joi.string().custom((value, helpers) => {
+        try {
+          const parsed = JSON.parse(value);
+          if (typeof parsed !== "object" || parsed === null)
+            return helpers.error("any.invalid");
+          if (parsed.amount === undefined || isNaN(parsed.amount))
+            return helpers.error("any.invalid");
+          return value;
+        } catch (e) {
+          return helpers.error("any.invalid");
+        }
+      }),
+      Joi.object({
+        amount: Joi.number().min(0).required(),
+        additionalCharges: Joi.array()
+          .items(
+            Joi.object({
+              description: Joi.string().optional(),
+              amount: Joi.number().min(0).optional(),
+            })
+          )
+          .optional(),
+        discount: Joi.number().min(0).optional(),
+        totalAmount: Joi.number().min(0).optional(),
+        currency: Joi.string().optional(),
+      }).optional()
+    ),
+    availability: Joi.alternatives().try(
+      Joi.string().custom((value, helpers) => {
+        try {
+          const parsed = JSON.parse(value);
+          if (typeof parsed !== "object" || parsed === null)
+            return helpers.error("any.invalid");
+          return value;
+        } catch (e) {
+          return helpers.error("any.invalid");
+        }
+      }),
+      Joi.object({
+        status: Joi.string().valid("available", "unavailable").optional(),
+        unavailableDates: Joi.array().items(Joi.date()).optional(),
+        schedule: Joi.object().unknown(true).optional(),
+      }).optional()
+    ),
+    images: Joi.array()
+      .items(
+        Joi.object({
+          url: Joi.string().uri().optional(),
+          caption: Joi.string().max(200).optional(),
+          isPrimary: Joi.boolean().optional(),
+        })
+      )
+      .optional(),
+  }),
+
+  updateService: Joi.object({
+    title: Joi.string().min(2).max(150).optional(),
+    description: Joi.string().max(2000).optional(),
+    pricing: Joi.alternatives()
+      .try(
+        Joi.string().custom((value, helpers) => {
+          try {
+            const parsed = JSON.parse(value);
+            if (typeof parsed !== "object" || parsed === null)
+              return helpers.error("any.invalid");
+            return value;
+          } catch (e) {
+            return helpers.error("any.invalid");
+          }
+        }),
+        Joi.object({
+          amount: Joi.number().min(0).optional(),
+          additionalCharges: Joi.array()
+            .items(
+              Joi.object({
+                description: Joi.string().optional(),
+                amount: Joi.number().min(0).optional(),
+              })
+            )
+            .optional(),
+          discount: Joi.number().min(0).optional(),
+          totalAmount: Joi.number().min(0).optional(),
+          currency: Joi.string().optional(),
+        }).optional()
+      )
+      .optional(),
+    availability: Joi.alternatives()
+      .try(
+        Joi.string().custom((value, helpers) => {
+          try {
+            const parsed = JSON.parse(value);
+            if (typeof parsed !== "object" || parsed === null)
+              return helpers.error("any.invalid");
+            return value;
+          } catch (e) {
+            return helpers.error("any.invalid");
+          }
+        }),
+        Joi.object({
+          status: Joi.string().valid("available", "unavailable").optional(),
+          unavailableDates: Joi.array().items(Joi.date()).optional(),
+          schedule: Joi.object().unknown(true).optional(),
+        }).optional()
+      )
+      .optional(),
+    images: Joi.array()
+      .items(
+        Joi.object({
+          url: Joi.string().uri().optional(),
+          caption: Joi.string().max(200).optional(),
+          isPrimary: Joi.boolean().optional(),
+        })
+      )
+      .optional(),
   }),
 };
 

@@ -398,7 +398,57 @@ router.post("/:conversationId/messages", protect, async (req, res, next) => {
       "Message sent successfully"
     );
 
-    // TODO: Emit via WebSocket if available
+    // Emit via WebSocket if available (HTTP fallback should notify sockets)
+    try {
+      const io = req.app.get("io");
+      const notificationService = req.app.get("notificationService");
+
+      if (io) {
+        // Emit both legacy and new event names for frontend compatibility
+        io.to(`conversation:${conversationId}`).emit("message:new", {
+          message,
+          conversation: {
+            _id: conversation._id,
+            lastMessage: conversation.lastMessage,
+            unreadCount: Object.fromEntries(conversation.unreadCount),
+          },
+        });
+
+        io.to(`conversation:${conversationId}`).emit("new_message", {
+          conversationId,
+          message,
+        });
+
+        // Notify each participant (except sender)
+        conversation.participants.forEach((participantId) => {
+          const participantIdStr = participantId.toString();
+          if (participantIdStr !== req.user._id.toString()) {
+            // emit notification events to the user's personal room
+            io.to(`user:${participantIdStr}`).emit("notification:new", {
+              type: "message",
+              conversationId,
+              message: message.content?.text || "",
+            });
+
+            io.to(`user:${participantIdStr}`).emit("new_notification", {
+              conversationId,
+              message: message.content?.text || "",
+            });
+
+            // Persist a notification via NotificationService (if available)
+            if (notificationService && typeof notificationService.notifyMessageReceived === "function") {
+              // fire-and-forget
+              notificationService
+                .notifyMessageReceived(message, participantIdStr, req.user.name || req.user.email)
+                .catch(() => {});
+            }
+          }
+        });
+      }
+    } catch (emitErr) {
+      // don't block the request on socket errors
+      console.warn("Socket emit failed:", emitErr.message || emitErr);
+    }
     // TODO: Send push notification
   } catch (error) {
     next(error);

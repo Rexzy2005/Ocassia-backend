@@ -2,8 +2,9 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
-const { allowedOrigins } = require("./config/environment");
+const { allowedOrigins, env } = require("./config/environment");
 const errorHandler = require("./middleware/errorHandler");
+const path = require("path");
 
 // Import routes
 const authRoutes = require("./routes/auth");
@@ -17,6 +18,7 @@ const conversationRoutes = require("./routes/conversations");
 const notificationRoutes = require("./routes/notifications");
 const notificationPreferenceRoutes = require("./routes/notificationPreferences");
 const reviewRoutes = require("./routes/reviews");
+const dashboardRoutes = require("./routes/dashboard");
 
 const app = express();
 
@@ -29,6 +31,9 @@ app.use(
     origin: (origin, callback) => {
       // Allow requests with no origin (mobile apps, Postman, etc.)
       if (!origin) return callback(null, true);
+
+      // In development, allow any origin to simplify testing
+      if (env === "development") return callback(null, true);
 
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
@@ -43,6 +48,9 @@ app.use(
 // Body parser
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve uploaded files
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Logging
 if (process.env.NODE_ENV === "development") {
@@ -70,6 +78,7 @@ app.use("/api/conversations", conversationRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/notification-preferences", notificationPreferenceRoutes);
 app.use("/api/reviews", reviewRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 // 404 handler
 app.use("*", (req, res) => {

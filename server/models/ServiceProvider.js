@@ -36,9 +36,28 @@ const serviceProviderSchema = new mongoose.Schema(
       default: "provider",
       immutable: true,
     },
+    // Link back to base User document when applicable
+    provider: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
     // Password reset
     resetPasswordToken: String,
     resetPasswordExpire: Date,
+    // CAC / company fields
+    companyName: {
+      type: String,
+      trim: true,
+      maxlength: [200, "Company name cannot exceed 200 characters"],
+    },
+    cacNumber: {
+      type: String,
+      trim: true,
+    },
+    cacVerified: {
+      type: Boolean,
+      default: false,
+    },
     // Profile completion
     profileCompleted: {
       type: Boolean,
@@ -48,29 +67,16 @@ const serviceProviderSchema = new mongoose.Schema(
     serviceCategory: {
       type: String,
       required: [true, "Service category is required"],
-      enum: [
-        "Catering",
-        "Photography",
-        "Videography",
-        "Decoration",
-        "DJ/Entertainment",
-        "Security",
-        "MC/Host",
-        "Makeup Artist",
-        "Event Planning",
-        "Transportation",
-        "Other",
-      ],
+      trim: true,
+      maxlength: [100, "Service category cannot exceed 100 characters"],
     },
     serviceName: {
       type: String,
-      required: [true, "Service name is required"],
       trim: true,
       maxlength: [100, "Service name cannot exceed 100 characters"],
     },
     description: {
       type: String,
-      required: [true, "Description is required"],
       trim: true,
       maxlength: [2000, "Description cannot exceed 2000 characters"],
     },
@@ -130,6 +136,52 @@ const serviceProviderSchema = new mongoose.Schema(
         description: { type: String },
         images: [{ type: String }],
         date: { type: Date },
+      },
+    ],
+    // Multiple services offered by this provider
+    services: [
+      {
+        title: { type: String, trim: true },
+        description: { type: String, trim: true },
+        pricing: {
+          type: {
+            type: String,
+            enum: ["fixed", "hourly", "package", "negotiable"],
+            default: "fixed",
+          },
+          amount: { type: Number, min: 0 },
+          currency: { type: String, default: "NGN" },
+          packages: [
+            {
+              name: { type: String, trim: true },
+              description: { type: String, trim: true },
+              price: { type: Number, min: 0 },
+              features: [{ type: String }],
+            },
+          ],
+        },
+        images: [
+          {
+            url: { type: String, required: true },
+            caption: { type: String },
+            isPrimary: { type: Boolean, default: false },
+          },
+        ],
+        availability: {
+          status: {
+            type: String,
+            enum: ["available", "busy", "unavailable"],
+            default: "available",
+          },
+          unavailableDates: [{ type: Date }],
+        },
+        isActive: { type: Boolean, default: true },
+        moderation: {
+          status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
+          notes: { type: String },
+          moderatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+          moderatedAt: { type: Date },
+        },
       },
     ],
     terms: {
